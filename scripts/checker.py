@@ -58,64 +58,100 @@ def load_config(excel_path: str) -> Dict:
 
 
 # ─────────────────────────────────────────────────────────────────
-# 阈值解析（支持全局阈值 + 按杂质名称阈值）
+# 阈值解析（支持项目级配置 + 杂质级阈值）
 # ─────────────────────────────────────────────────────────────────
 class ThresholdResolver:
     """
     阈值解析器
     支持：
+    - 项目级覆盖 project_overrides（每个项目可有独立 default_threshold + impurity_thresholds）
+    - 杂质级阈值 impurity_thresholds（全局默认，按杂质名称模糊匹配）
     - default_threshold：全局默认阈值
-    - impurity_thresholds：按杂质名称的阈值（支持文字描述模糊匹配）
     """
 
-    def __init__(self, config: Dict):
+    def __init__(self, config: Dict, project_cfg: Optional[Dict] = None):
         self.config = config
+        # 项目级配置（字典格式：default_threshold + impurity_thresholds）
+        self.project_cfg = project_cfg
+        # 全局兜底
         self.default_threshold = float(
             config.get('default_threshold') or config.get('report_threshold') or 0.05
         )
         self.impurity_thresholds = config.get('impurity_thresholds', {})
 
+    def get_active_project(self, excel_path: str) -> Tuple[Optional[str], Optional[Dict]]:
+        """检测当前文件匹配哪个项目，返回 (项目关键词, 项目配置字典)"""
+        project_configs = self.config.get('project_configs', {})
+        if not project_configs:
+            return None, None
+        excel_name = os.path.basename(excel_path)
+        excel_dir = os.path.dirname(os.path.abspath(excel_path))
+        for keyword, proj_cfg in project_configs.items():
+            if keyword in excel_name or keyword in excel_dir:
+                return keyword, proj_cfg if isinstance(proj_cfg, dict) else None
+        return None, None
+
     def get_threshold(self, impurity_name: str) -> float:
         """
         根据杂质名称获取对应阈值
-        匹配规则：精确匹配 > 包含匹配（第一个匹配项）
+        匹配规则：精确匹配 > 包含匹配
         """
-        if not impurity_name or not self.impurity_thresholds:
-            return self.default_threshold
-
-        # 1. 精确匹配（key 完全等于杂质名）
-        for key, val in self.impurity_thresholds.items():
-            if key == impurity_name:
-                return float(val)
-
-        # 2. 包含匹配（杂质名包含 key，或 key 包含在杂质名中）
-        for key, val in self.impurity_thresholds.items():
-            if key in impurity_name:
-                return float(val)
-
+        # 优先使用项目级配置
+        if self.project_cfg:
+            project_impurities = self.project_cfg.get('impurity_thresholds', {})
+            if project_impurities:
+                for key, val in project_impurities.items():
+                    if key == impurity_name:
+                        return float(val)
+                for key, val in project_impurities.items():
+                    if key in impurity_name:
+                        return float(val)
+        # 兜底全局配置
+        if self.impurity_thresholds:
+            for key, val in self.impurity_thresholds.items():
+                if key == impurity_name:
+                    return float(val)
+            for key, val in self.impurity_thresholds.items():
+                if key in impurity_name:
+                    return float(val)
+        # 使用 default_threshold（优先项目级，其次全局）
+        if self.project_cfg:
+            return float(self.project_cfg.get('default_threshold', self.default_threshold))
         return self.default_threshold
 
-    def resolve(self, excel_path: str) -> Tuple[float, List[str]]:
-        """
-        解析配置并返回（默认阈值, 来源信息列表）
-        用于打印配置来源说明
-        """
+    def get_default_threshold(self) -> float:
+        """获取默认阈值（优先项目级）"""
+        if self.project_cfg:
+            return float(self.project_cfg.get('default_threshold', self.default_threshold))
+        return self.default_threshold
+
+    def resolve(self, excel_path: str, active_project: Optional[str] = None) -> Tuple[float, List[str]]:
         lines = []
         config_path = find_config_file(excel_path)
         if config_path:
             lines.append(f"📎 配置文件: {config_path}")
 
-        if self.impurity_thresholds:
-            lines.append(f"📎 默认报告限: {self.default_threshold}%")
-            lines.append(f"📎 杂质专用阈值: {len(self.impurity_thresholds)} 项")
-            for name, val in list(self.impurity_thresholds.items())[:5]:
-                lines.append(f"    · {name} → {val}%")
-            if len(self.impurity_thresholds) > 5:
-                lines.append(f"    · ... 共 {len(self.impurity_thresholds)} 项")
+        if active_project and self.project_cfg:
+            lines.append(f"📎 匹配项目: {active_project}")
+            proj_default = self.project_cfg.get('default_threshold', self.default_threshold)
+            lines.append(f"📎 项目默认报告限: {proj_default}%")
+            proj_impurities = self.project_cfg.get('impurity_thresholds', {})
+            if proj_impurities:
+                lines.append(f"📎 项目杂质阈值: {len(proj_impurities)} 项")
+                for name, val in list(proj_impurities.items())[:5]:
+                    lines.append(f"    · {name} → {val}%")
+                if len(proj_impurities) > 5:
+                    lines.append(f"    · ... 共 {len(proj_impurities)} 项")
         else:
             lines.append(f"📎 默认报告限: {self.default_threshold}%")
+            if self.impurity_thresholds:
+                lines.append(f"📎 杂质专用阈值: {len(self.impurity_thresholds)} 项")
+                for name, val in list(self.impurity_thresholds.items())[:5]:
+                    lines.append(f"    · {name} → {val}%")
+                if len(self.impurity_thresholds) > 5:
+                    lines.append(f"    · ... 共 {len(self.impurity_thresholds)} 项")
 
-        return self.default_threshold, lines
+        return self.get_default_threshold(), lines
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -469,20 +505,23 @@ def check_file(file_path: str,
     if cli_threshold is not None:
         # CLI 全局阈值模式
         config = {'default_threshold': cli_threshold, 'impurity_thresholds': {}}
+        threshold_resolver = ThresholdResolver(config)
         print(f"  🎯 命令行指定报告限: {cli_threshold}%")
     else:
         config = load_config(file_path)
         if not config:
-            # 无配置文件，使用自动识别+默认值
             auto_val = auto_detect_threshold_from_excel(ws)
             config = {'default_threshold': auto_val or 0.05, 'impurity_thresholds': {}}
-
-    threshold_resolver = ThresholdResolver(config)
-
-    # 打印配置来源
-    _, info_lines = threshold_resolver.resolve(file_path)
-    for line in info_lines:
-        print(f"  {line}")
+            threshold_resolver = ThresholdResolver(config)
+            print(f"  📌 使用内置默认报告限: 0.05%")
+        else:
+            # 检查是否有项目级配置
+            resolver_for_proj = ThresholdResolver(config)
+            active_project, project_cfg = resolver_for_proj.get_active_project(file_path)
+            threshold_resolver = ThresholdResolver(config, project_cfg)
+            _, info_lines = threshold_resolver.resolve(file_path, active_project)
+            for line in info_lines:
+                print(f"  {line}")
 
     batch_checker = BatchNumberChecker(batch_format)
     ignore_checker = IgnoreTermChecker(threshold_resolver)
@@ -532,9 +571,6 @@ def print_results(file_path: str, errors: List[CheckError], resolver: ThresholdR
         print(f"📋 {basename}")
         print(f"  ✅ 未发现明显错误")
         return
-
-    default_t = resolver.default_threshold
-    n_impurities = len(resolver.impurity_thresholds)
 
     header = f"📋 {basename}\n"
     header += f"  ⚠️ 发现 {len(errors)} 个潜在问题\n"

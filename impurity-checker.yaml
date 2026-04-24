@@ -6,26 +6,36 @@
 #   ~/.openclaw/workspace/skills/impurity-data-check/impurity-checker.yaml
 #
 # 阈值优先级（从高到低）：
-#   1. --threshold 命令行参数（全局单一阈值）
-#   2. 配置文件 default_threshold / impurity_thresholds
-#   3. Excel 表头自动识别
-#   4. 内置默认值 0.05%
+#   1. --threshold 命令行参数
+#   2. 项目级配置 project_configs（按文件名/路径关键词匹配）
+#   3. 全局默认配置 default_threshold / impurity_thresholds
+#   4. Excel 表头自动识别
+#   5. 内置默认值 0.05%
 # ============================================================
 
-# ── 默认报告限（未匹配到杂质专用阈值时使用） ──
+# ── 项目级配置（按文件名或路径关键词匹配） ──
+# key：项目关键词（匹配文件名或路径即启用该配置）
+# value：该项目专属的 default_threshold 和 impurity_thresholds
+project_configs:
+
+  # LMS002 项目（黄体酮预灌封）
+  LMS002:
+    default_threshold: 0.05
+    impurity_thresholds:
+      "杂质M": 0.05
+      "杂质N": 0.10
+      "其他单个杂质": 0.05
+
+  # 其他项目示例：
+  # LMS001:
+  #   default_threshold: 0.10
+  #   impurity_thresholds:
+  #     "杂质A": 0.10
+
+# ── 全局默认配置（无项目匹配时使用） ──
 default_threshold: 0.05
 
-# ── 按杂质名称设置不同报告限 ──
-# 匹配规则：精确匹配 > 包含匹配
-# 即：先找完全相同的名称，再找杂质名包含 key 的
+# ── 全局杂质阈值（无项目匹配时使用） ──
+# 与项目配置中的 impurity_thresholds 合并使用
 impurity_thresholds:
-  # 已知杂质（精确名称匹配）
   "杂质M": 0.05
-  "杂质N": 0.10
-
-  # 其他单个杂质（包含匹配）
-  "其他单个杂质": 0.05
-
-  # 示例：特定药物项目
-  # "甲硝唑杂质A": 0.10
-  # "甲硝唑杂质B": 0.05
