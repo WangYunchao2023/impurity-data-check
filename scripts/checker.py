@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 HPLC有关物质检测数据明显错误检查器
-版本: 0.9.0
+版本: 0.9.1
 
 架构：
 1. 提取阶段：脚本从 Excel 中提取项目关键信息（项目编号、药品名、规格等）
@@ -11,9 +11,9 @@ HPLC有关物质检测数据明显错误检查器
 
 阈值优先级（从高到低）：
 1. --threshold 命令行参数
-2. Agent/配置文件 综合判断的项目配置
-3. 全局默认配置 default_threshold / impurity_thresholds
-4. Excel 表头自动识别
+2. --agent-decision Agent 决策参数
+3. 项目级配置 project_configs（项目编号/文件名/内容匹配）
+4. 全局默认配置 default_threshold / impurity_thresholds
 5. 内置默认值 0.05%
 """
 
@@ -92,7 +92,7 @@ class ProjectInfoExtractor:
     ]
 
     # 项目编号模式
-    PROJECT_CODE_PATTERN = r'\b([A-Z]{2,}\\d{3,})\\b'
+    PROJECT_CODE_PATTERN = r'\b([A-Z]{2,}\d{3,})\b'
     PROJECT_CODE_PATTERNS = [
         r'\b(LM\w{2,})\b',
         r'\b(PM\w{2,})\b',
@@ -347,7 +347,7 @@ class ThresholdResolver:
 # ─────────────────────────────────────────────────────────────────
 class BatchFormatValidator:
     def __init__(self,
-                 pattern: str = r'^(.+)-(\\d{2})(\\d{2})(\\d{2})-(\\d{2})$',
+                 pattern: str = r'^(.+)-(\d{2})(\d{2})(\d{2})-(\d{2})$',
                  pattern_desc: str = '项目编号-年月日-序号（例：LMS002-260401-05）'):
         self.pattern = pattern
         self.pattern_desc = pattern_desc
@@ -362,7 +362,7 @@ class BatchFormatValidator:
         batch = batch.strip()
         if self.is_valid(batch):
             return batch
-        match = re.match(r'^(.+)-(\\d{8})$', batch)
+        match = re.match(r'^(.+)-(\d{8})$', batch)
         if match:
             prefix, digits = match.group(1), match.group(2)
             if digits.isdigit():
