@@ -32,37 +32,61 @@ except ImportError:
 # ─────────────────────────────────────────────────────────────────
 # 配置文件查找路径
 # ─────────────────────────────────────────────────────────────────
-SKILL_DIR = os.path.dirname(os.path.abspath(__file__))
+SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def find_config_file(excel_path: str) -> Optional[str]:
-    """按优先级查找配置文件"""
-    candidates = [
-        os.path.join(os.path.dirname(os.path.abspath(excel_path)), 'impurity-checker.yaml'),
-        os.path.join(SKILL_DIR, 'impurity-checker.yaml'),
-    ]
-    for path in candidates:
-        if os.path.exists(path):
-            return path
+    """优先查找 skill 目录的配置文件"""
+    skill_config = os.path.join(SKILL_DIR, 'impurity-checker.yaml')
+    if os.path.exists(skill_config):
+        return skill_config
     return None
 
 
-def load_threshold_from_config(excel_path: str) -> Optional[float]:
-    """从配置文件读取报告限阈值"""
+def load_config(excel_path: str) -> Dict:
+    """加载配置文件，返回完整配置字典"""
     config_path = find_config_file(excel_path)
     if not config_path:
-        return None
+        return {}
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
-        threshold = config.get('report_threshold') or config.get('threshold')
-        if threshold is not None:
-            val = float(threshold)
-            print(f"  📎 配置文件: {config_path}")
-            print(f"  📎 报告限: {val}%")
-            return val
+        return config or {}
     except Exception as e:
         print(f"  ⚠️ 配置文件读取失败 ({config_path}): {e}")
-    return None
+        return {}
+
+
+def resolve_threshold_from_config(excel_path: str) -> Tuple[Optional[float], Optional[str]]:
+    """
+    从配置文件读取报告限阈值
+    返回 (threshold值, 来源说明)
+    支持 default_threshold 和 project_overrides
+    """
+    config = load_config(excel_path)
+    if not config:
+        return None, None
+
+    # 1. 尝试项目级覆盖（按文件名/路径关键词匹配）
+    overrides = config.get('project_overrides', {})
+    if overrides:
+        excel_name = os.path.basename(excel_path)
+        excel_dir = os.path.dirname(os.path.abspath(excel_path))
+        for keyword, threshold in overrides.items():
+            if keyword in excel_name or keyword in excel_dir:
+                val = float(threshold)
+                print(f"  📎 配置文件: {find_config_file(excel_path)}")
+                print(f"  📎 项目级覆盖: '{keyword}' → 报告限 {val}%")
+                return val, f"project_overrides['{keyword}']"
+
+    # 2. 使用默认阈值
+    default_val = config.get('default_threshold') or config.get('report_threshold')
+    if default_val is not None:
+        val = float(default_val)
+        print(f"  📎 配置文件: {find_config_file(excel_path)}")
+        print(f"  📎 默认报告限: {val}%")
+        return val, f"default_threshold"
+
+    return None, None
 
 
 def auto_detect_threshold_from_excel(ws) -> Optional[float]:
@@ -416,13 +440,13 @@ def find_columns(ws) -> List[Dict]:
 def resolve_threshold(file_path: str, ws, cli_threshold: Optional[float]) -> float:
     """
     按优先级确定报告限阈值
-    优先级：CLI参数 > 配置文件 > Excel自动识别 > 默认0.05%
+    优先级：CLI参数 > 项目级覆盖 > 默认配置 > Excel自动识别 > 默认0.05%
     """
     if cli_threshold is not None:
         print(f"  🎯 命令行指定报告限: {cli_threshold}%")
         return cli_threshold
 
-    config_threshold = load_threshold_from_config(file_path)
+    config_threshold, config_source = resolve_threshold_from_config(file_path)
     if config_threshold is not None:
         return config_threshold
 
@@ -430,7 +454,7 @@ def resolve_threshold(file_path: str, ws, cli_threshold: Optional[float]) -> flo
     if auto_threshold is not None:
         return auto_threshold
 
-    print(f"  📌 使用默认报告限: 0.05%")
+    print(f"  📌 使用内置默认报告限: 0.05%")
     return 0.05
 
 

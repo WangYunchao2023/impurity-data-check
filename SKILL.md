@@ -21,17 +21,34 @@ HPLC有关物质检测数据明显错误检查工具。
 | 优先级 | 来源 | 说明 |
 |--------|------|------|
 | 1 | `--threshold` 命令行参数 | 临时指定，如 `--threshold 0.05` |
-| 2 | 被检文件同目录 `impurity-checker.yaml` | 项目级配置 |
-| 3 | skill 目录 `impurity-checker.yaml` | 默认配置 |
+| 2 | 项目级覆盖 `project_overrides` | 根据文件名/路径关键词匹配 |
+| 3 | 默认配置 `default_threshold` | 所有项目统一使用此阈值 |
 | 4 | Excel 表头自动识别 | 扫描"报告限：X%"等关键词 |
 | 5 | 内置默认值 | 0.05% |
 
-**配置文件格式（`impurity-checker.yaml`）：**
+## 配置文件
+
+放置于 **skill 目录**（`~/.openclaw/workspace/skills/impurity-data-check/impurity-checker.yaml`）：
 
 ```yaml
-report_threshold: 0.05   # 报告限百分比，可写 0.05 或 5e-2
-# 也支持 key 名：threshold
+# ── 默认报告限（所有项目统一使用此阈值时设置） ──
+default_threshold: 0.05
+
+# ── 项目级阈值覆盖（按文件名/路径关键词匹配） ──
+project_overrides:
+  # LMS002 项目 → 使用 0.05%
+  "LMS002": 0.05
+
+  # 其他项目示例：
+  # "LMS001": 0.10
+  # "黄体酮": 0.05
+  # "/研发部门/抗肿瘤药/": 0.10
 ```
+
+**匹配规则：**
+- 关键词匹配文件名或路径，包含即匹配
+- 匹配到则使用对应阈值，否则使用 `default_threshold`
+- `default_threshold` 和 `project_overrides` 可以只配置其中一个
 
 ## 批号格式规范
 
@@ -39,8 +56,6 @@ report_threshold: 0.05   # 报告限百分比，可写 0.05 或 5e-2
 
 ```
 LMS002-260401-05
- ↑        ↑↑↑↑↑↑  ↑
- 项目编号  年月日    序号
 ```
 
 示例：
@@ -48,21 +63,17 @@ LMS002-260401-05
 - `LMS002-26040105` ❌ 缺少连字符
 - `LMS002-260401-5` ❌ 序号位数不足
 
-如需修改标准格式，编辑 `scripts/checker.py` 中的 `BatchFormatValidator` 类。
-
 ## 检查项目
 
 ### 1. 批号格式一致性检查
 
 - 检测同一文件内批号格式是否统一
 - 识别缺少连字符的批号（如 `LMS002-26040105` → 建议改为 `LMS002-260401-05`）
-- 报错精准定位到单元格地址
 
 ### 2. 忽略不计判断合理性检查
 
 - 标记"忽略不计"的含量值必须小于报告限
 - 含量 ≥ 报告限却标"忽略不计" → 报错
-- 报告限支持动态配置（见上文）
 
 ## 使用方法
 
@@ -73,17 +84,19 @@ python3 scripts/checker.py <文件路径> [--threshold <阈值>]
 **示例：**
 
 ```bash
-# 使用默认阈值（0.05%）
+# 使用配置文件中的阈值（默认/项目级）
 python3 scripts/checker.py LMS002-HPLC-有关物质.xlsx
 
-# 指定临时阈值
+# 临时指定阈值（覆盖配置文件）
 python3 scripts/checker.py LMS002-HPLC-有关物质.xlsx --threshold 0.06
 ```
 
 ## 输出格式
 
 ```
-📋 测试用数据-LMS002-HPLC-有关物质-20260422.xlsm  |  报告限: 0.05%
+📎 配置文件: .../impurity-checker.yaml
+  📎 项目级覆盖: 'LMS002' → 报告限 0.05%
+📋 测试数据.xlsx  |  报告限: 0.05%
   ⚠️ 发现 8 个潜在问题
 ┌──────────┬──────────┬──────────────────────────────────────────────────────────────┐
 │ 类型     │ 位置     │ 问题                                                           │
@@ -92,24 +105,3 @@ python3 scripts/checker.py LMS002-HPLC-有关物质.xlsx --threshold 0.06
 │ 忽略不计 │ F205     │ 含量0.06% ≥ 报告限0.05%，不应标记为"忽略不计"                                   │
 └──────────┴──────────┴──────────────────────────────────────────────────────────────┘
 ```
-
-## 配置
-
-### 批号格式
-
-在 `scripts/checker.py` 中修改正则表达式：
-
-```python
-batch_format = BatchFormatValidator(
-    pattern=r'^(.+)-(\d{2})(\d{2})(\d{2})-(\d{2})$',
-    pattern_desc='项目编号-年月日-序号（例：LMS002-260401-05）'
-)
-```
-
-### 报告限阈值
-
-三种方式（按优先级）：
-
-1. **命令行参数**：`--threshold 0.05`
-2. **配置文件**：在 `impurity-checker.yaml` 中设置 `report_threshold: 0.05`
-3. **默认值**：0.05%
