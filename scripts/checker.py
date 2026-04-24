@@ -673,18 +673,42 @@ def check_file(file_path: str,
         print(f"  🧠 Agent 决策: 项目={agent_decision.get('project', '未知')}, 报告限={agent_decision.get('threshold')}%")
     else:
         config = load_config(file_path)
-        if not config:
-            auto_val = auto_detect_threshold_from_excel(ws)
-            config = {'default_threshold': auto_val or 0.05, 'impurity_thresholds': {}}
-            threshold_resolver = ThresholdResolver(config)
-            print(f"  📌 使用内置默认报告限: 0.05%")
-        else:
-            resolver_for_proj = ThresholdResolver(config)
-            active_project, project_cfg = resolver_for_proj.auto_match_project(project_info)
-            threshold_resolver = ThresholdResolver(config, project_cfg)
-            _, info_lines = threshold_resolver.resolve(file_path, active_project)
-            for line in info_lines:
-                print(f"  {line}")
+        config = load_config(file_path)
+
+        # 无 --agent-decision 时，打印提取的项目信息和可用配置，供 Agent 参考
+        # 由 Agent 判断使用哪个项目配置，然后再次调用时通过 --agent-decision 指定
+        threshold_resolver = ThresholdResolver(config)
+
+        print()
+        print("=" * 60)
+        print("【项目信息提取 - 供 Agent 判断用】")
+        print("=" * 60)
+        print(f"项目编号: {project_info.project_code or '未提取到'}")
+        print(f"检测项目: {project_info.detection_type or '未提取到'}")
+        print(f"药品名: {project_info.drug_name or '未提取到'}")
+        print(f"产品名: {project_info.product_name or '未提取到'}")
+        print()
+        print("原始文本：")
+        print(project_info.raw_text)
+
+        if config.get('project_configs'):
+            print()
+            print("可用项目配置：")
+            for name, cfg in config['project_configs'].items():
+                th = cfg.get('default_threshold', '未设')
+                imps = list(cfg.get('impurity_thresholds', {}).keys())
+                print(f"  · {name}: 默认报告限={th}%, 杂质专用阈值={imps}")
+
+        print("=" * 60)
+        print()
+        print("【请 Agent 判断】")
+        print("  请根据上方提取的项目信息（项目编号、药品名等），")
+        print("  判断该文件应使用哪个项目配置。")
+        print("  确认后，使用 --agent-decision 参数指定：")
+        print("  Example: --agent-decision '{\"project\": \"LMS002\", \"threshold\": 0.05}'")
+        print()
+        print("  若无匹配的项目配置，将使用全局默认配置（default_threshold）。")
+        print("=" * 60)
 
     batch_checker = BatchNumberChecker(batch_format)
     ignore_checker = IgnoreTermChecker(threshold_resolver)
