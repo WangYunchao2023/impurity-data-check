@@ -268,9 +268,9 @@ class ThresholdResolver:
             config.get('default_threshold') or config.get('report_threshold') or 0.05
         )
         # 合并全局和项目级杂质阈值，项目级优先
-        merged = dict(config.get('impurity_thresholds', {}))
+        merged = dict(config.get('impurity_thresholds') or {})
         if project_cfg:
-            merged.update(project_cfg.get('impurity_thresholds', {}))
+            merged.update(project_cfg.get('impurity_thresholds') or {})
         self.impurity_thresholds = merged
 
     def get_threshold(self, impurity_name: str) -> float:
