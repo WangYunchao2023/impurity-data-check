@@ -79,16 +79,35 @@ class ThresholdResolver:
         )
         self.impurity_thresholds = config.get('impurity_thresholds', {})
 
-    def get_active_project(self, excel_path: str) -> Tuple[Optional[str], Optional[Dict]]:
-        """检测当前文件匹配哪个项目，返回 (项目关键词, 项目配置字典)"""
+    def get_active_project(self, excel_path: str, ws=None) -> Tuple[Optional[str], Optional[Dict]]:
+        """
+        检测当前文件匹配哪个项目，返回 (项目关键词, 项目配置字典)
+        搜索范围：文件名 > 路径 > Excel文件内容（前35行）
+        """
         project_configs = self.config.get('project_configs', {})
         if not project_configs:
             return None, None
+
         excel_name = os.path.basename(excel_path)
         excel_dir = os.path.dirname(os.path.abspath(excel_path))
+
+        # 1. 先从文件名/路径匹配
         for keyword, proj_cfg in project_configs.items():
             if keyword in excel_name or keyword in excel_dir:
                 return keyword, proj_cfg if isinstance(proj_cfg, dict) else None
+
+        # 2. 从 Excel 内容（前35行）匹配
+        if ws is not None:
+            content_texts = []
+            for row in ws.iter_rows(min_row=1, max_row=35):
+                for cell in row:
+                    if cell.value and isinstance(cell.value, str):
+                        content_texts.append(cell.value.strip())
+            full_text = '\n'.join(content_texts)
+            for keyword, proj_cfg in project_configs.items():
+                if keyword in full_text:
+                    return keyword, proj_cfg if isinstance(proj_cfg, dict) else None
+
         return None, None
 
     def get_threshold(self, impurity_name: str) -> float:
@@ -517,7 +536,7 @@ def check_file(file_path: str,
         else:
             # 检查是否有项目级配置
             resolver_for_proj = ThresholdResolver(config)
-            active_project, project_cfg = resolver_for_proj.get_active_project(file_path)
+            active_project, project_cfg = resolver_for_proj.get_active_project(file_path, ws)
             threshold_resolver = ThresholdResolver(config, project_cfg)
             _, info_lines = threshold_resolver.resolve(file_path, active_project)
             for line in info_lines:

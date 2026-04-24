@@ -7,19 +7,23 @@
 #
 # 阈值优先级（从高到低）：
 #   1. --threshold 命令行参数
-#   2. 项目级配置 project_configs（按文件名/路径关键词匹配）
+#   2. 项目级配置 project_configs（文件名/路径/Excel内容匹配）
 #   3. 全局默认配置 default_threshold / impurity_thresholds
 #   4. Excel 表头自动识别
 #   5. 内置默认值 0.05%
+#
+# 项目匹配方式（优先级从高到低）：
+#   a. 文件名包含关键词
+#   b. 文件路径包含关键词
+#   c. Excel 文件内容（前35行）包含关键词
 # ============================================================
 
-# ── 项目级配置（按文件名或路径关键词匹配） ──
-# key：项目关键词（匹配文件名或路径即启用该配置）
-# value：该项目专属的 default_threshold 和 impurity_thresholds
+# ── 项目级配置 ──
 project_configs:
 
-  # LMS002 项目（黄体酮预灌封）
-  LMS002:
+  # 黄体酮预灌封有关物质
+  # 关键词可来自：文件名（如"黄体酮预灌封"）、文件内容（如"黄体酮预灌封有关物质检测结果"）
+  "黄体酮预灌封":
     default_threshold: 0.05
     impurity_thresholds:
       "杂质M": 0.05
@@ -27,15 +31,13 @@ project_configs:
       "其他单个杂质": 0.05
 
   # 其他项目示例：
-  # LMS001:
+  # "甲硝唑注射液":
   #   default_threshold: 0.10
   #   impurity_thresholds:
   #     "杂质A": 0.10
+  #     "其他单个杂质": 0.05
 
 # ── 全局默认配置（无项目匹配时使用） ──
 default_threshold: 0.05
-
-# ── 全局杂质阈值（无项目匹配时使用） ──
-# 与项目配置中的 impurity_thresholds 合并使用
 impurity_thresholds:
   "杂质M": 0.05
