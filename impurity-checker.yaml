@@ -1,6 +1,6 @@
 # ============================================================
 # HPLC 有关物质检查器 - 全局配置文件
-# 版本: 0.8.0
+# 版本: 0.9.2
 # ============================================================
 # 放置位置（skill 目录）：
 #   ~/.openclaw/workspace/skills/impurity-data-check/impurity-checker.yaml
@@ -30,19 +30,19 @@ project_configs:
       "杂质M": 0.03
       "其他单个杂质": 0.05
 
-  # 为便于 Agent 判断，可同时添加项目编号作为 key
-  "LMS002":
-    default_threshold: 0.05
-    impurity_thresholds:
-      "杂质M": 0.03
-      "其他单个杂质": 0.05
-
   # 其他项目示例：
   # "甲硝唑注射液":
   #   default_threshold: 0.10
   #   impurity_thresholds:
   #     "杂质A": 0.10
   #     "其他单个杂质": 0.05
+
+  # ── 也可使用项目编号作为 key ──
+  "LMS002":
+    default_threshold: 0.05
+    impurity_thresholds:
+      "杂质M": 0.03
+      "其他单个杂质": 0.05
 
 # ── 全局默认配置（无项目匹配时使用） ──
 default_threshold: 0.05
