@@ -727,15 +727,13 @@ def print_results(file_path: str, errors: List[CheckError], project_info: Projec
         print(f"📋 {basename}")
         print(f"  ✅ 未发现明显错误")
         return
-    header = f"📋 {basename}\\n"
-    header += f"  ⚠️ 发现 {len(errors)} 个潜在问题\\n"
-    header += "┌──────────┬──────────┬──────────────────────────────────────────────────────────────┐\\n"
-    header += "│ 类型     │ 位置     │ 问题                                                           │\\n"
-    header += "├──────────┼──────────┼──────────────────────────────────────────────────────────────┤"
-    print(header)
+    print(f"📋 {basename}\n  ⚠️ 发现 {len(errors)} 个潜在问题")
+    print("┌──────────┬──────────────────────────────────────────────────────────────────┐")
+    print("│ 位置     │ 问题                                                           │")
+    print("├──────────┼──────────────────────────────────────────────────────────────────┤")
     for e in errors:
-        print(f"│ {e.field:<8} │ {e.cell_refs:<8} │ {e.message:<60} │")
-    print("└──────────┴──────────┴──────────────────────────────────────────────────────────────┘")
+        print(f"│ {e.cell_refs:<8} │ {e.message:<64} │")
+    print("└──────────┴──────────────────────────────────────────────────────────────────┘")
 
 
 def print_project_info(project_info: ProjectInfo, config=None):
