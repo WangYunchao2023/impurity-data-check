@@ -1,6 +1,6 @@
 ---
 name: impurity-data-check
-version: 0.9.2
+version: 0.9.3
 description: HPLC有关物质检测数据明显错误检查——批号格式一致性、忽略不计判断（支持项目级配置 + 按杂质名称配置报告限 + Agent 协作判断）
 author: Cortana 💙
 tags:
