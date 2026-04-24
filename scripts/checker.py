@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 HPLC有关物质检测数据明显错误检查器
-版本: 0.9.3
+版本: 0.9.4
 
 架构：
 1. 提取阶段：脚本从 Excel 中提取项目关键信息（项目编号、药品名、规格等）
@@ -87,8 +87,8 @@ class ProjectInfoExtractor:
     # 常见药品名/通用名模式
     DRUG_NAME_PATTERNS = [
         r'([^\\/\s]+?)(?:预灌封|注射液|片剂|胶囊|颗粒|软膏|凝胶)',
-        r'([\\u4e00-\\u9fa5]{2,6})(?:注射液|预灌封)',
-        r'^[\\u4e00-\\u9fa5]+',
+        '([\u4e00-\u9fa5]{2,6})(?:注射液|预灌封)',
+        '^[一-龥]+',
     ]
 
     # 项目编号模式
@@ -154,7 +154,7 @@ class ProjectInfoExtractor:
                 break
 
         # 提取药品名
-        drug_match = re.search(r'([\\u4e00-\\u9fa5]{2,6}(?:预灌封|注射液|片剂|胶囊))', filename)
+        drug_match = re.search('([\u4e00-\u9fa5]{2,6}(?:预灌封|注射液|片剂|胶囊))', filename)
         if drug_match:
             self.product_name = drug_match.group(1)
             # 简单提取通用名
@@ -204,7 +204,7 @@ class ProjectInfoExtractor:
         # 提取药品名（A1 标题）
         if not self.product_name and content_rows:
             first = content_rows[0]
-            m = re.search(r'([\\u4e00-\\u9fa5]{2,}(?:预灌封|注射液|片剂|胶囊))', first)
+            m = re.search('([\u4e00-\u9fa5]{2,}(?:预灌封|注射液|片剂|胶囊))', first)
             if m:
                 self.product_name = m.group(1)
                 for kw in ['预灌封', '注射液']:
